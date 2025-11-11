@@ -3,3 +3,4 @@ root: index
 chapters:
   - file: lecture_16_example
   - file: "Birth Rates in Singapore"
+  - file: lab_10
