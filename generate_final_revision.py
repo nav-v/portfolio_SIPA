@@ -1,0 +1,453 @@
+import json
+
+notebook = {
+ "cells": [
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# 🎓 Final Revision Guide: The \"Cheat Sheet\" Notebook\n",
+    "\n",
+    "**Goal:** This notebook covers the *concepts* and *logic* you need for the test. \n",
+    "**Format:** Read the concept, look at the code, and try to understand *why* it works.\n",
+    "\n",
+    "## 📚 Syllabus Checklist\n",
+    "- [ ] Pure Python (CSV, Logic)\n",
+    "- [ ] Pandas Fundamentals (Types, Indexing)\n",
+    "- [ ] Data Manipulation (Groupby, Merge, Clean, Reshaping)\n",
+    "- [ ] Time Series (Resampling)\n",
+    "- [ ] Visualization (Chart types)\n",
+    "- [ ] APIs & JSON\n",
+    "- [ ] Markdown & Jupyter"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# 1. Pure Python & Standard Library (No Pandas)\n",
+    "**Scenario:** You are on a desert island without Pandas. You have to process a CSV file row by row.\n",
+    "\n",
+    "### Key Modules\n",
+    "*   `import csv`: For reading/writing CSVs.\n",
+    "*   `import json`: For parsing JSON data.\n",
+    "\n",
+    "### The \"Lowest GDP\" Problem (Classic Logic)\n",
+    "**Task:** Find the country with the lowest GDP without using `min()` on a list."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": None,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import csv\n",
+    "import io\n",
+    "\n",
+    "# Simulating a CSV file in memory so this code runs\n",
+    "csv_content = \"\"\"Country,GDP\n",
+    "USA,23000\n",
+    "China,18000\n",
+    "Tuvalu,0.06\n",
+    "Germany,4000\"\"\"\n",
+    "\n",
+    "# In the real test, you'd use: with open('gdp.csv', 'r') as f:\n",
+    "# Here we use io.StringIO(csv_content) to pretend it's a file\n",
+    "with io.StringIO(csv_content) as f:\n",
+    "    reader = csv.DictReader(f)  # DictReader lets you use row[\"ColumnName\"]\n",
+    "    \n",
+    "    lowest_gdp = None\n",
+    "    lowest_country = None\n",
+    "\n",
+    "    for row in reader:\n",
+    "        gdp = float(row[\"GDP\"]) # CRITICAL: Convert string to float!\n",
+    "        \n",
+    "        # Logic: If it's the first row (None) OR this gdp is lower than our current best\n",
+    "        if lowest_gdp is None or gdp < lowest_gdp:\n",
+    "            lowest_gdp = gdp\n",
+    "            lowest_country = row[\"Country\"]\n",
+    "\n",
+    "print(f\"Country with lowest GDP: {lowest_country} (${lowest_gdp})\")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### 💡 Key Takeaways\n",
+    "1.  **`csv.DictReader`**: Reads rows as dictionaries (`{'Country': 'USA', 'GDP': '20000'}`).\n",
+    "2.  **Type Conversion**: CSV data is *always* strings. You MUST cast to `float()` or `int()` for math.\n",
+    "3.  **`None` Check**: Initialize variables to `None` to handle the first row correctly."
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# 2. Pandas Fundamentals\n",
+    "\n",
+    "### Data Structures\n",
+    "*   **Series**: 1D array (a single column). Has an index.\n",
+    "*   **DataFrame**: 2D table (rows and columns). A collection of Series.\n",
+    "\n",
+    "### Data Types (dtypes)\n",
+    "Why do we care? **Memory** and **Functionality**.\n",
+    "\n",
+    "| Type | Description | Common Issues |\n",
+    "| :--- | :--- | :--- |\n",
+    "| `object` | Text/Strings (or mixed) | Can't do math. Check for hidden symbols ('$100'). |\n",
+    "| `int64` | Whole numbers | Can't have NaNs (usually). |\n",
+    "| `float64` | Decimals | Used for money, scientific data. |\n",
+    "| `bool` | True/False | Result of logic (`df['Age'] > 18`). |\n",
+    "| `datetime64` | Dates | Allows `.dt` accessor (e.g., `.dt.year`). |"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": None,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import pandas as pd\n",
+    "import numpy as np\n",
+    "\n",
+    "df = pd.DataFrame({\n",
+    "    'Price': ['$100', '$200', 'Not Available'],\n",
+    "    'Age': [25, 30, np.nan]\n",
+    "})\n",
+    "\n",
+    "# 1. Check Types\n",
+    "print(df.dtypes)\n",
+    "\n",
+    "# 2. Convert Types (The Hard Way vs The Easy Way)\n",
+    "# Hard Way: astype (Fails if there are errors)\n",
+    "# df['Age'] = df['Age'].astype(int) # ERROR! Cannot convert NaN to integer\n",
+    "\n",
+    "# Easy Way: pd.to_numeric (Handles errors)\n",
+    "df['Price_Clean'] = pd.to_numeric(df['Price'].str.replace('$', ''), errors='coerce')\n",
+    "# errors='coerce' turns 'Not Available' into NaN"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Indexing\n",
+    "*   **`.loc[row_label, col_label]`**: Label-based. Inclusive of end.\n",
+    "*   **`.iloc[row_pos, col_pos]`**: Integer-position based. Exclusive of end (like Python lists).\n",
+    "*   **Boolean Indexing**: Filtering rows based on a condition."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": None,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "df = pd.DataFrame({'A': [10, 20, 30], 'B': [40, 50, 60]}, index=['x', 'y', 'z'])\n",
+    "\n",
+    "# .loc (Label)\n",
+    "print(df.loc['x', 'A']) # 10\n",
+    "print(df.loc['x':'y', 'A']) # Includes 'y'!\n",
+    "\n",
+    "# .iloc (Position)\n",
+    "print(df.iloc[0, 0]) # 10\n",
+    "print(df.iloc[0:2, 0]) # Excludes index 2 (row 'z')\n",
+    "\n",
+    "# Boolean Indexing\n",
+    "mask = df['A'] > 15\n",
+    "print(df[mask]) # Shows rows y and z"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# 3. Data Manipulation (The Heavy Lifting)\n",
+    "\n",
+    "### Cleaning Data\n",
+    "*   `dropna()`: Remove missing values.\n",
+    "*   `fillna(value)`: Replace missing values.\n",
+    "*   `sort_values(by='col')`: Sort data."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": None,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "df = pd.DataFrame({'Val': [1, np.nan, 2]})\n",
+    "\n",
+    "# Drop rows with ANY NaNs\n",
+    "clean_df = df.dropna()\n",
+    "\n",
+    "# Fill NaNs with 0\n",
+    "filled_df = df.fillna(0)\n",
+    "\n",
+    "# Sort\n",
+    "sorted_df = df.sort_values(by='Val', ascending=False)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Grouping (Split-Apply-Combine)\n",
+    "**Syntax:** `df.groupby('GroupCol')['TargetCol'].agg_func()`\n",
+    "\n",
+    "**The Dictionary Syntax (Your Nemesis):**\n",
+    "If you want different aggregations for different columns, pass a dictionary to `.agg()`."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": None,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "data = pd.DataFrame({\n",
+    "    'Category': ['A', 'A', 'B', 'B'],\n",
+    "    'Qty': [1, 2, 3, 4],\n",
+    "    'Price': [10, 20, 30, 40]\n",
+    "})\n",
+    "\n",
+    "# CORRECT WAY\n",
+    "res = data.groupby('Category').agg({\n",
+    "    'Qty': 'sum',      # Sum the Qty\n",
+    "    'Price': 'mean'    # Average the Price\n",
+    "})\n",
+    "\n",
+    "# WRONG WAY (Syntax Error)\n",
+    "# df.groupby('Category')['Qty'].agg(['Qty': 'sum']) # No colons in lists!"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Merging (Joins)\n",
+    "Combining two DataFrames based on a common key.\n",
+    "\n",
+    "*   **Inner Join (`how='inner'`)**: Keep only rows that match in BOTH. (Intersection)\n",
+    "*   **Left Join (`how='left'`)**: Keep ALL rows from Left, match what you can from Right. (Fill missing with NaN).\n",
+    "*   **Outer Join (`how='outer'`)**: Keep EVERYTHING. (Union)."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": None,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "left = pd.DataFrame({'ID': [1, 2], 'Name': ['Alice', 'Bob']})\n",
+    "right = pd.DataFrame({'ID': [2, 3], 'Score': [90, 80]})\n",
+    "\n",
+    "# Inner Join (Only ID 2 matches)\n",
+    "inner = pd.merge(left, right, on='ID', how='inner')\n",
+    "# Result: Bob, 90\n",
+    "\n",
+    "# Left Join (Keep Alice, Bob. Alice gets NaN score)\n",
+    "left_join = pd.merge(left, right, on='ID', how='left')\n",
+    "# Result: Alice (NaN), Bob (90)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "### Reshaping (Melt & Pivot)\n",
+    "Changing the shape of your data (Wide <-> Long).\n",
+    "\n",
+    "*   **Melt (Wide -> Long)**: Unpivoting. Good for computers/plotting.\n",
+    "*   **Pivot (Long -> Wide)**: Making it readable. Good for humans."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": None,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "# Wide Data (Months as Columns)\n",
+    "wide_df = pd.DataFrame({\n",
+    "    'City': ['NY', 'LA'],\n",
+    "    'Jan': [100, 200],\n",
+    "    'Feb': [150, 250]\n",
+    "})\n",
+    "\n",
+    "# 1. MELT: Gather columns into rows\n",
+    "melted_df = wide_df.melt(\n",
+    "    id_vars='City',      # Column to keep fixed\n",
+    "    var_name='Month',    # Name for the new column created from headers\n",
+    "    value_name='Sales'   # Name for the values\n",
+    ")\n",
+    "# Result:\n",
+    "# City  Month  Sales\n",
+    "# NY    Jan    100\n",
+    "# LA    Jan    200\n",
+    "# NY    Feb    150\n",
+    "# LA    Feb    250\n",
+    "\n",
+    "# 2. PIVOT: Spread rows back into columns\n",
+    "pivoted_df = melted_df.pivot(\n",
+    "    index='City',        # What becomes the rows\n",
+    "    columns='Month',     # What becomes the columns\n",
+    "    values='Sales'       # What fills the cells\n",
+    ")"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# 4. Time Series & Resampling\n",
+    "\n",
+    "**Resampling:** Changing the frequency of your time series data.\n",
+    "*   **Downsampling:** High Freq -> Low Freq (Days -> Months). Needs **Aggregation** (sum, mean).\n",
+    "*   **Upsampling:** Low Freq -> High Freq (Months -> Days). Needs **Filling** (ffill, bfill).\n",
+    "\n",
+    "**Syntax:** `df.resample('Rule').agg()`"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": None,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "dates = pd.to_datetime(['2023-01-01', '2023-01-02', '2023-02-01'])\n",
+    "ts = pd.DataFrame({'Sales': [100, 200, 300]}, index=dates)\n",
+    "\n",
+    "# Downsample to Month (Sum)\n",
+    "monthly = ts.resample('M').sum()\n",
+    "# Result: Jan (300), Feb (300)\n",
+    "\n",
+    "# Upsample to Day (Forward Fill)\n",
+    "# Fills missing days with the previous valid value\n",
+    "daily = monthly.resample('D').ffill()"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# 5. Visualization\n",
+    "\n",
+    "### Choosing the Right Chart\n",
+    "1.  **Line Chart:** Change over time (Trends).\n",
+    "2.  **Bar Chart:** Comparing categories (Apples vs Oranges).\n",
+    "3.  **Scatter Plot:** Relationship between two numbers (Height vs Weight).\n",
+    "4.  **Histogram:** Distribution of one variable (Frequency of test scores).\n",
+    "5.  **Choropleth:** Maps/Geospatial data (Coloring regions by value).\n",
+    "\n",
+    "### Chart Hygiene\n",
+    "*   **Title:** What is this chart?\n",
+    "*   **Labels:** What are the axes? (Include units! $ or kg)\n",
+    "*   **Legend:** If multiple series."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": None,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "import plotly.express as px\n",
+    "\n",
+    "# Bar Chart\n",
+    "# px.bar(df, x='Category', y='Sales', title='Sales by Category')\n",
+    "\n",
+    "# Line Chart\n",
+    "# px.line(df, x='Date', y='Sales', title='Sales Over Time')\n",
+    "\n",
+    "# Scatter Plot\n",
+    "# px.scatter(df, x='Height', y='Weight', title='Height vs Weight')\n",
+    "\n",
+    "# Histogram\n",
+    "# px.histogram(df, x='Scores', nbins=10, title='Score Distribution')"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# 6. APIs & JSON\n",
+    "\n",
+    "**API (Application Programming Interface):** A waiter. You (Client) ask for data (Menu), the API gets it from the Kitchen (Server) and brings it back.\n",
+    "\n",
+    "**JSON (JavaScript Object Notation):** The language of APIs. It's just nested Dictionaries and Lists.\n",
+    "\n",
+    "### Parsing JSON Example\n",
+    "```python\n",
+    "data = {\n",
+    "  \"results\": [{ \"name\": \"Jimmy McMillan\", \"first_file_date\": \"2010-01-01\" }]\n",
+    "}\n",
+    "```\n",
+    "**Goal:** Get \"Jimmy McMillan\"."
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": None,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "data = {\n",
+    "  \"results\": [{ \"name\": \"Jimmy McMillan\", \"first_file_date\": \"2010-01-01\" }]\n",
+    "}\n",
+    "\n",
+    "# 1. 'results' is a key. Value is a LIST.\n",
+    "# 2. Access the first item in the list [0].\n",
+    "# 3. That item is a DICT. Access key 'name'.\n",
+    "\n",
+    "name = data['results'][0]['name']\n",
+    "print(name)"
+   ]
+  },
+  {
+   "cell_type": "markdown",
+   "metadata": {},
+   "source": [
+    "# 7. Markdown & Jupyter\n",
+    "\n",
+    "**Markdown:** A lightweight markup language for formatting text.\n",
+    "*   `# Header 1`, `## Header 2`\n",
+    "*   `**Bold**`, `*Italic*`\n",
+    "*   `[Link Text](URL)`\n",
+    "*   `- Bullet Point`\n",
+    "\n",
+    "**Jupyter:**\n",
+    "*   **Kernel:** The computation engine (Python) running in the background. If code hangs, restart the kernel.\n",
+    "*   **Cell Types:** Code (runs Python) vs Markdown (text)."
+   ]
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.8.5"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 4
+}
+
+with open('final_revision_guide.ipynb', 'w') as f:
+    json.dump(notebook, f, indent=1)
+
+print("Notebook created successfully!")
